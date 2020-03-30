@@ -22,9 +22,9 @@ import org.chromium.chrome.browser.BraveFeatureList;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.onboarding.OnboardingPrefManager;
 import org.chromium.chrome.browser.preferences.BravePrefServiceBridge;
+import org.chromium.chrome.browser.privacy.settings.BravePrivacySettings;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.settings.homepage.BraveHomepageSettings;
-import org.chromium.chrome.browser.settings.privacy.BravePrivacySettings;
 import org.chromium.chrome.browser.settings.BravePreferenceFragment;
 import org.chromium.ui.base.DeviceFormFactor;
 
