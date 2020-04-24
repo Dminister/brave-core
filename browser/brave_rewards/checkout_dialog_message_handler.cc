@@ -21,6 +21,7 @@ CheckoutDialogMessageHandler::CheckoutDialogMessageHandler(
     : params_(params),
       controller_(controller),
       weak_factory_(this) {
+  DCHECK(params_);
   DCHECK(controller_);
   controller_->AddObserver(this);
 }
@@ -102,8 +103,10 @@ void CheckoutDialogMessageHandler::OnRewardsMainEnabled(
 }
 
 void CheckoutDialogMessageHandler::OnPaymentAborted() {
-  // TODO(zenparsing): Handle case where payment is currently
-  // in progress.
+  if (payment_in_progress_) {
+    return;
+  }
+
   if (IsJavascriptAllowed()) {
     FireWebUIListener("paymentCanceled");
   }
@@ -175,8 +178,10 @@ void CheckoutDialogMessageHandler::OnCreateWallet(
 
 void CheckoutDialogMessageHandler::OnCancelPayment(
     const base::ListValue* args) {
-  // TODO(zenparsing): Cancel the potential order via the
-  // rewards service, but do not wait to close the dialog.
+  if (payment_in_progress_) {
+    return;
+  }
+
   AllowJavascript();
   FireWebUIListener("paymentCanceled");
 }
@@ -192,6 +197,8 @@ void CheckoutDialogMessageHandler::OnGetOrderInfo(
 
 void CheckoutDialogMessageHandler::OnPayWithWallet(
     const base::ListValue* args) {
+  DCHECK(!payment_in_progress_);
+  payment_in_progress_ = true;
   // TODO(zenparsing): Call rewards service to process payment
 }
 
@@ -205,8 +212,9 @@ void CheckoutDialogMessageHandler::OnPayWithCreditCard(
 void CheckoutDialogMessageHandler::FetchBalanceCallback(
     int32_t status,
     std::unique_ptr<brave_rewards::Balance> balance) {
-  if (!IsJavascriptAllowed())
+  if (!IsJavascriptAllowed()) {
     return;
+  }
 
   if (status == 0 && balance) {
     base::Value response(base::Value::Type::DICTIONARY);
@@ -226,8 +234,9 @@ void CheckoutDialogMessageHandler::FetchBalanceCallback(
 
 void CheckoutDialogMessageHandler::GetAnonWalletStatusCallback(
     uint32_t status) {
-  if (!IsJavascriptAllowed())
+  if (!IsJavascriptAllowed()) {
     return;
+  }
 
   std::string status_text;
   switch (status) {
@@ -244,8 +253,9 @@ void CheckoutDialogMessageHandler::GetAnonWalletStatusCallback(
 void CheckoutDialogMessageHandler::GetExternalWalletCallback(
     int32_t status,
     std::unique_ptr<brave_rewards::ExternalWallet> wallet) {
-  if (!IsJavascriptAllowed())
+  if (!IsJavascriptAllowed()) {
     return;
+  }
 
   if (status == 0 && wallet) {
     bool verified = wallet->status == 1; // ledger::WalletStatus::VERIFIED
@@ -261,8 +271,9 @@ void CheckoutDialogMessageHandler::GetExternalWalletCallback(
 
 void CheckoutDialogMessageHandler::GetRewardsMainEnabledCallback(
     bool enabled) {
-  if (!IsJavascriptAllowed())
+  if (!IsJavascriptAllowed()) {
     return;
+  }
 
   base::Value response(base::Value::Type::DICTIONARY);
   response.SetBoolKey("rewardsEnabled", enabled);

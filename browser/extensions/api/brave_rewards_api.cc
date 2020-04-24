@@ -1196,8 +1196,9 @@ BraveRewardsShowCheckoutDialogFunction::Run() {
   return RespondLater();
 }
 
-void BraveRewardsShowCheckoutDialogFunction::OnDialogClosed() {
-  Respond(NoArguments());
+void BraveRewardsShowCheckoutDialogFunction::OnDialogClosed(
+    bool payment_fulfilled) {
+  Respond(OneArgument(std::make_unique<base::Value>(payment_fulfilled)));
 }
 
 }  // namespace api

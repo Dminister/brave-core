@@ -469,7 +469,7 @@ class BraveRewardsShowCheckoutDialogFunction : public ExtensionFunction {
   ResponseAction Run() override;
 
  private:
-  void OnDialogClosed();
+  void OnDialogClosed(bool payment_fulfilled);
 };
 
 }  // namespace api

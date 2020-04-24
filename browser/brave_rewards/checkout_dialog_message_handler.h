@@ -21,10 +21,10 @@ namespace brave_rewards {
 // Defines the interface between JS and C++ for the checkout dialog.
 // This message handler is created by the checkout dialog delegate
 // when the dialog is shown.
-class CheckoutDialogMessageHandler :
-    public content::WebUIMessageHandler,
-    public RewardsServiceObserver,
-    public CheckoutDialogController::Observer {
+class CheckoutDialogMessageHandler
+    : public content::WebUIMessageHandler,
+      public RewardsServiceObserver,
+      public CheckoutDialogController::Observer {
 
  public:
   CheckoutDialogMessageHandler(
@@ -77,6 +77,7 @@ class CheckoutDialogMessageHandler :
   void GetRewardsMainEnabledCallback(bool enabled);
   void CreateWalletCallback(int32_t result);
 
+  bool payment_in_progress_ = false;
   CheckoutDialogParams* params_; // Owned by CheckoutDialogDelegate
   CheckoutDialogController* controller_; // Owned by CheckoutDialogDelegate
   RewardsService* rewards_service_ = nullptr; // Immortal

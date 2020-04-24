@@ -20,6 +20,7 @@ void CheckoutDialogController::NotifyPaymentAborted() {
 }
 
 void CheckoutDialogController::NotifyPaymentFulfilled() {
+  payment_fulfilled_ = true;
   for (auto& observer : observers_) {
     observer.OnPaymentFulfilled();
   }
@@ -45,7 +46,7 @@ void CheckoutDialogController::RemoveObserver(Observer* observer) {
 
 void CheckoutDialogController::NotifyDialogClosed() {
   if (dialog_closed_callback_) {
-    std::move(dialog_closed_callback_).Run();
+    std::move(dialog_closed_callback_).Run(payment_fulfilled_);
   }
 }
 

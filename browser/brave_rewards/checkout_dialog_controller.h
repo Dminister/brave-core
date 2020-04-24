@@ -16,8 +16,8 @@ namespace brave_rewards {
 // Defines the interface between the opener of the checkout dialog
 // and the classes responsible for managing the behavior of the
 // checkout dialog.
-class CheckoutDialogController :
-    public base::SupportsWeakPtr<CheckoutDialogController> {
+class CheckoutDialogController
+    : public base::SupportsWeakPtr<CheckoutDialogController> {
 
  public:
   class Observer : public base::CheckedObserver {
@@ -26,9 +26,8 @@ class CheckoutDialogController :
     virtual void OnPaymentFulfilled() = 0;
   };
 
-  // TODO(zenparsing): We should provide a "payment_fulfilled"
-  // flag to the callback.
-  using OnDialogClosedCallback = base::OnceCallback<void()>;
+  using OnDialogClosedCallback =
+      base::OnceCallback<void(bool payment_fulfilled)>;
 
   // TODO(zenparsing): We need to send enough information that the
   // initiator can aknowledge the payment.
@@ -47,7 +46,7 @@ class CheckoutDialogController :
   void NotifyPaymentAborted();
 
   // Notifies the checkout dialog that the payment has been
-  // fulfilled by the initiating website.
+  // fulfilled by the initiator.
   void NotifyPaymentFulfilled();
 
   // Sets a callback that will be run when the checkout dialog
@@ -68,6 +67,7 @@ class CheckoutDialogController :
   void NotifyDialogClosed();
   void NotifyPaymentReady();
 
+  bool payment_fulfilled_ = false;
   base::ObserverList<Observer> observers_;
   OnDialogClosedCallback dialog_closed_callback_;
   OnPaymentReadyCallback payment_ready_callback_;
