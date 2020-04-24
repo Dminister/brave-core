@@ -3,42 +3,47 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <memory>
-
-#include "testing/gtest/include/gtest/gtest.h"
-
-#include "base/time/time.h"
-
 #include "bat/ads/internal/frequency_capping/permission_rules/ads_per_hour_frequency_cap.h"
-#include "bat/ads/internal/frequency_capping/frequency_capping.h"
 
-#include "bat/ads/internal/client_mock.h"
+#include <memory>
+#include <string>
+
+#include "bat/ads/creative_ad_info.h"
 #include "bat/ads/internal/ads_client_mock.h"
 #include "bat/ads/internal/ads_impl.h"
+#include "bat/ads/internal/client.h"
+#include "bat/ads/internal/frequency_capping/frequency_capping_unittest_utils.h"
+#include "bat/ads/internal/frequency_capping/frequency_capping_utils.h"
+#include "bat/ads/internal/unittest_utils.h"
 
-// npm run test -- brave_unit_tests --filter=Ads*
+#include "base/time/time.h"
+#include "testing/gtest/include/gtest/gtest.h"
 
-using std::placeholders::_1;
-using ::testing::_;
-using ::testing::Invoke;
+// npm run test -- brave_unit_tests --filter=BatAds*
 
-namespace {
-
-const char kTestAdCreativeInstanceId[] = "9aea9a47-c6a0-4718-a0fa-706338bb2156";
-
-}  // namespace
+using ::testing::NiceMock;
+using ::testing::Return;
 
 namespace ads {
 
-class BraveAdsAdsPerHourFrequencyCapTest : public ::testing::Test {
+namespace {
+
+const char kCreativeInstanceId[] = "9aea9a47-c6a0-4718-a0fa-706338bb2156";
+
+}  // namespace
+
+class BatAdsAdsPerHourFrequencyCapTest : public ::testing::Test {
  protected:
-  BraveAdsAdsPerHourFrequencyCapTest()
-  : mock_ads_client_(std::make_unique<MockAdsClient>()),
-    ads_(std::make_unique<AdsImpl>(mock_ads_client_.get())) {
+  BatAdsAdsPerHourFrequencyCapTest()
+      : ads_client_mock_(std::make_unique<NiceMock<AdsClientMock>>()),
+        ads_(std::make_unique<AdsImpl>(ads_client_mock_.get())),
+        client_(std::make_unique<Client>(ads_.get(), ads_client_mock_.get())),
+        frequency_cap_(std::make_unique<AdsPerHourFrequencyCap>(
+            ads_.get(), ads_client_mock_.get(), client_.get())) {
     // You can do set-up work for each test here
   }
 
-  ~BraveAdsAdsPerHourFrequencyCapTest() override {
+  ~BatAdsAdsPerHourFrequencyCapTest() override {
     // You can do clean-up work that doesn't throw exceptions here
   }
 
@@ -49,20 +54,7 @@ class BraveAdsAdsPerHourFrequencyCapTest : public ::testing::Test {
     // Code here will be called immediately after the constructor (right before
     // each test)
 
-    auto callback = std::bind(
-        &BraveAdsAdsPerHourFrequencyCapTest::OnAdsImplInitialize, this, _1);
-    ads_->Initialize(callback);
-
-    client_mock_ = std::make_unique<ClientMock>(ads_.get(),
-        mock_ads_client_.get());
-    frequency_capping_ = std::make_unique<FrequencyCapping>(
-        client_mock_.get());
-    per_hour_limit_ = std::make_unique<AdsPerHourFrequencyCap>(
-        ads_.get(), mock_ads_client_.get(), frequency_capping_.get());
-  }
-
-  void OnAdsImplInitialize(const Result result) {
-    EXPECT_EQ(Result::SUCCESS, result);
+    Initialize(ads_.get());
   }
 
   void TearDown() override {
@@ -70,78 +62,72 @@ class BraveAdsAdsPerHourFrequencyCapTest : public ::testing::Test {
     // destructor)
   }
 
-  std::unique_ptr<MockAdsClient> mock_ads_client_;
-  std::unique_ptr<AdsImpl> ads_;
+  // Objects declared here can be used by all tests in the test case
 
-  std::unique_ptr<ClientMock> client_mock_;
-  std::unique_ptr<FrequencyCapping> frequency_capping_;
-  std::unique_ptr<AdsPerHourFrequencyCap> per_hour_limit_;
+  std::unique_ptr<AdsClientMock> ads_client_mock_;
+  std::unique_ptr<AdsImpl> ads_;
+  std::unique_ptr<Client> client_;
+  std::unique_ptr<AdsPerHourFrequencyCap> frequency_cap_;
 };
 
-TEST_F(BraveAdsAdsPerHourFrequencyCapTest,
+TEST_F(BatAdsAdsPerHourFrequencyCapTest,
     PerHourLimitRespectedWithNoAdHistory) {
   // Arrange
-  ON_CALL(*mock_ads_client_, GetAdsPerHour())
-      .WillByDefault(testing::Return(2));
+  ON_CALL(*ads_client_mock_, GetAdsPerHour())
+      .WillByDefault(Return(2));
 
   // Act
-  const bool does_history_respect_per_hour_limit =
-       per_hour_limit_->IsAllowed();
+  const bool is_allowed = frequency_cap_->IsAllowed();
 
   // Assert
-  EXPECT_TRUE(does_history_respect_per_hour_limit);
+  EXPECT_TRUE(is_allowed);
 }
 
-TEST_F(BraveAdsAdsPerHourFrequencyCapTest,
+TEST_F(BatAdsAdsPerHourFrequencyCapTest,
     PerHourLimitRespectedWithAdsBelowPerHourLimit) {
   // Arrange
-  ON_CALL(*mock_ads_client_, GetAdsPerHour())
-      .WillByDefault(testing::Return(2));
+  ON_CALL(*ads_client_mock_, GetAdsPerHour())
+      .WillByDefault(Return(2));
 
-  client_mock_->GeneratePastAdHistoryFromNow(kTestAdCreativeInstanceId,
-    base::Time::kSecondsPerHour - 1, 1);
+  GeneratePastAdHistoryFromNow(client_.get(), kCreativeInstanceId,
+      base::Time::kSecondsPerHour - 1, 1);
 
   // Act
-  const bool does_history_respect_per_hour_limit =
-      per_hour_limit_->IsAllowed();
+  const bool is_allowed = frequency_cap_->IsAllowed();
 
   // Assert
-  EXPECT_TRUE(does_history_respect_per_hour_limit);
+  EXPECT_TRUE(is_allowed);
 }
 
-TEST_F(BraveAdsAdsPerHourFrequencyCapTest,
+TEST_F(BatAdsAdsPerHourFrequencyCapTest,
     PerHourLimitRespectedWithAdsAbovePerHourLimitButOlderThanAnHour) {
   // Arrange
-  ON_CALL(*mock_ads_client_, GetAdsPerHour())
-      .WillByDefault(testing::Return(2));
+  ON_CALL(*ads_client_mock_, GetAdsPerHour())
+      .WillByDefault(Return(2));
 
-  client_mock_->GeneratePastAdHistoryFromNow(kTestAdCreativeInstanceId,
+  GeneratePastAdHistoryFromNow(client_.get(), kCreativeInstanceId,
       base::Time::kSecondsPerHour, 2);
 
   // Act
-  const bool does_history_respect_per_hour_limit =
-      per_hour_limit_->IsAllowed();
+  const bool is_allowed = frequency_cap_->IsAllowed();
 
   // Assert
-  EXPECT_TRUE(does_history_respect_per_hour_limit);
+  EXPECT_TRUE(is_allowed);
 }
 
-TEST_F(BraveAdsAdsPerHourFrequencyCapTest,
+TEST_F(BatAdsAdsPerHourFrequencyCapTest,
     PerHourLimitNotRespectedWithAdsAbovePerHourLimit) {
   // Arrange
-  ON_CALL(*mock_ads_client_, GetAdsPerHour())
-      .WillByDefault(testing::Return(2));
+  ON_CALL(*ads_client_mock_, GetAdsPerHour())
+      .WillByDefault(Return(2));
 
-  client_mock_->GeneratePastAdHistoryFromNow(
-      kTestAdCreativeInstanceId, 10 * 60, 2);
+  GeneratePastAdHistoryFromNow(client_.get(), kCreativeInstanceId, 10 * 60, 2);
 
   // Act
-  const bool does_history_respect_per_hour_limit =
-      per_hour_limit_->IsAllowed();
+  const bool is_allowed = frequency_cap_->IsAllowed();
 
   // Assert
-  EXPECT_FALSE(does_history_respect_per_hour_limit);
-  EXPECT_EQ(per_hour_limit_->GetLastMessage(), "You have exceeded the allowed ads per hour");  // NOLINT
+  EXPECT_FALSE(is_allowed);
 }
 
 }  // namespace ads

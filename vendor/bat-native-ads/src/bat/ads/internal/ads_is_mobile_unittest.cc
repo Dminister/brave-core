@@ -15,11 +15,11 @@ namespace ads {
 
 class AdsIsMobileTest : public ::testing::Test {
  protected:
-  std::unique_ptr<MockAdsClient> mock_ads_client_;
+  std::unique_ptr<AdsClientMock> mock_ads_client_;
   std::unique_ptr<AdsImpl> ads_;
 
   AdsIsMobileTest() :
-      mock_ads_client_(std::make_unique<MockAdsClient>()),
+      mock_ads_client_(std::make_unique<AdsClientMock>()),
       ads_(std::make_unique<AdsImpl>(mock_ads_client_.get())) {
     // You can do set-up work for each test here
   }

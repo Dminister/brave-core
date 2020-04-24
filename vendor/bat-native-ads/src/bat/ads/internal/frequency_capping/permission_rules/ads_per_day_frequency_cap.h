@@ -3,40 +3,49 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef BAT_ADS_INTERNAL_PER_DAY_LIMIT_H_
-#define BAT_ADS_INTERNAL_PER_DAY_LIMIT_H_
-
-#include <string>
+#ifndef BAT_ADS_INTERNAL_FREQUENCY_CAPPING_EXCLUSION_RULES_PER_DAY_LIMIT_H_
+#define BAT_ADS_INTERNAL_FREQUENCY_CAPPING_EXCLUSION_RULES_PER_DAY_LIMIT_H_
 
 #include "bat/ads/internal/frequency_capping/permission_rule.h"
 
+#include <stdint.h>
+
+#include <deque>
+
 namespace ads {
 
-struct CreativeAdNotificationInfo;
 class AdsClient;
-class FrequencyCapping;
+class Client;
+struct AdHistory;
 
 class AdsPerDayFrequencyCap : public PermissionRule  {
  public:
   AdsPerDayFrequencyCap(
       const AdsClient* const ads_client,
-      const FrequencyCapping* const frequency_capping);
+      const Client* const client);
 
   ~AdsPerDayFrequencyCap() override;
 
+  AdsPerDayFrequencyCap(const AdsPerDayFrequencyCap&) = delete;
+  AdsPerDayFrequencyCap& operator=(const AdsPerDayFrequencyCap&) = delete;
+
   bool IsAllowed() override;
 
-  std::string GetLastMessage() const override;
+  std::string get_last_message() const override;
 
  private:
   const AdsClient* const ads_client_;  // NOT OWNED
-  const FrequencyCapping* const frequency_capping_;  // NOT OWNED
+  const Client* const client_;  // NOT OWNED
 
   std::string last_message_;
 
-  bool AreAdsPerDayBelowAllowedThreshold() const;
+  bool DoesRespectCap(
+      const std::deque<uint64_t>& history) const;
+
+  std::deque<uint64_t> FilterHistory(
+      const std::deque<AdHistory>& history) const;
 };
 
 }  // namespace ads
 
-#endif  // BAT_ADS_INTERNAL_PER_DAY_LIMIT_H_
+#endif  // BAT_ADS_INTERNAL_FREQUENCY_CAPPING_EXCLUSION_RULES_PER_DAY_LIMIT_H_

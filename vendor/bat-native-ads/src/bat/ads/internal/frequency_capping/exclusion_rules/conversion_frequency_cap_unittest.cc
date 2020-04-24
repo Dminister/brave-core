@@ -3,10 +3,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "bat/ads/internal/frequency_capping/exclusion_rules/per_hour_frequency_cap.h"
+#include "bat/ads/internal/frequency_capping/exclusion_rules/conversion_frequency_cap.h"
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "bat/ads/creative_ad_info.h"
 #include "bat/ads/internal/ads_client_mock.h"
@@ -27,21 +28,25 @@ namespace ads {
 
 namespace {
 
-const char kCreativeInstanceId[] = "9aea9a47-c6a0-4718-a0fa-706338bb2156";
+const std::vector<std::string> kCreativeSetIds = {
+  "654f10df-fbc4-4a92-8d43-2edf73734a60",
+  "465f10df-fbc4-4a92-8d43-4edf73734a60"
+};
 
 }  // namespace
 
-class BatAdsPerHourFrequencyCapTest : public ::testing::Test {
+class BatAdsConversionFrequencyCapTest : public ::testing::Test {
  protected:
-  BatAdsPerHourFrequencyCapTest()
+  BatAdsConversionFrequencyCapTest()
       : ads_client_mock_(std::make_unique<NiceMock<AdsClientMock>>()),
         ads_(std::make_unique<AdsImpl>(ads_client_mock_.get())),
         client_(std::make_unique<Client>(ads_.get(), ads_client_mock_.get())),
-        frequency_cap_(std::make_unique<PerHourFrequencyCap>(client_.get())) {
-    // You can do set-up work for each test here
+        frequency_cap_(std::make_unique<ConversionFrequencyCap>(
+            client_.get())) {
+        // You can do set-up work for each test here
   }
 
-  ~BatAdsPerHourFrequencyCapTest() override {
+  ~BatAdsConversionFrequencyCapTest() override {
     // You can do clean-up work that doesn't throw exceptions here
   }
 
@@ -60,17 +65,20 @@ class BatAdsPerHourFrequencyCapTest : public ::testing::Test {
     // destructor)
   }
 
+  // Objects declared here can be used by all tests in the test case
+
   std::unique_ptr<AdsClientMock> ads_client_mock_;
   std::unique_ptr<AdsImpl> ads_;
   std::unique_ptr<Client> client_;
-  std::unique_ptr<PerHourFrequencyCap> frequency_cap_;
+  std::unique_ptr<ConversionFrequencyCap> frequency_cap_;
 };
 
-TEST_F(BatAdsPerHourFrequencyCapTest,
-    AdAllowedWhenNoAds) {
+TEST_F(BatAdsConversionFrequencyCapTest,
+    AdAllowedWithNoAdHistory) {
   // Arrange
   CreativeAdInfo ad;
-  ad.creative_instance_id = kCreativeInstanceId;
+  ad.creative_set_id = kCreativeSetIds.at(0);
+  ad.total_max = 2;
 
   // Act
   const bool should_exclude = frequency_cap_->ShouldExclude(ad);
@@ -79,13 +87,14 @@ TEST_F(BatAdsPerHourFrequencyCapTest,
   EXPECT_FALSE(should_exclude);
 }
 
-TEST_F(BatAdsPerHourFrequencyCapTest,
-    AdAllowedOverTheHour) {
+TEST_F(BatAdsConversionFrequencyCapTest,
+    AdAllowedWithMatchingAds) {
   // Arrange
   CreativeAdInfo ad;
-  ad.creative_instance_id = kCreativeInstanceId;
+  ad.creative_set_id = kCreativeSetIds.at(0);
+  ad.total_max = 2;
 
-  GeneratePastAdHistoryFromNow(client_.get(), kCreativeInstanceId,
+  GeneratePastCreativeSetHistoryFromNow(client_.get(), ad.creative_set_id,
       base::Time::kSecondsPerHour, 1);
 
   // Act
@@ -95,14 +104,30 @@ TEST_F(BatAdsPerHourFrequencyCapTest,
   EXPECT_FALSE(should_exclude);
 }
 
-TEST_F(BatAdsPerHourFrequencyCapTest,
-    AdExcludedWithPastAdsJustWithinTheHour) {
+TEST_F(BatAdsConversionFrequencyCapTest, AdAllowedWithNonMatchingAds) {
   // Arrange
   CreativeAdInfo ad;
-  ad.creative_instance_id = kCreativeInstanceId;
+  ad.creative_set_id = kCreativeSetIds.at(1);
+  ad.total_max = 2;
 
-  GeneratePastAdHistoryFromNow(client_.get(), kCreativeInstanceId,
-      base::Time::kSecondsPerHour - 1, 1);
+  GeneratePastCreativeSetHistoryFromNow(client_.get(), kCreativeSetIds.at(0),
+      base::Time::kSecondsPerHour, 5);
+
+  // Act
+  const bool should_exclude = frequency_cap_->ShouldExclude(ad);
+
+  // Assert
+  EXPECT_FALSE(should_exclude);
+}
+
+TEST_F(BatAdsConversionFrequencyCapTest, AdExcludedWhenNoneAllowed) {
+  // Arrange
+  CreativeAdInfo ad;
+  ad.creative_set_id = kCreativeSetIds.at(0);
+  ad.total_max = 0;
+
+  GeneratePastCreativeSetHistoryFromNow(client_.get(), ad.creative_set_id,
+      base::Time::kSecondsPerHour, 5);
 
   // Act
   const bool should_exclude = frequency_cap_->ShouldExclude(ad);
@@ -111,13 +136,14 @@ TEST_F(BatAdsPerHourFrequencyCapTest,
   EXPECT_TRUE(should_exclude);
 }
 
-TEST_F(BatAdsPerHourFrequencyCapTest,
-    AdExcludedWithPastAdWithinTheHour) {
+TEST_F(BatAdsConversionFrequencyCapTest, AdExcludedWhenMaximumReached) {
   // Arrange
   CreativeAdInfo ad;
-  ad.creative_instance_id = kCreativeInstanceId;
+  ad.creative_set_id = kCreativeSetIds.at(0);
+  ad.total_max = 5;
 
-  GeneratePastAdHistoryFromNow(client_.get(), kCreativeInstanceId, 0, 1);
+  GeneratePastCreativeSetHistoryFromNow(client_.get(), ad.creative_set_id,
+      base::Time::kSecondsPerHour, 5);
 
   // Act
   const bool should_exclude = frequency_cap_->ShouldExclude(ad);

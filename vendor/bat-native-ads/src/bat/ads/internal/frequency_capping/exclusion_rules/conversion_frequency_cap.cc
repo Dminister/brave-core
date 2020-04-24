@@ -1,9 +1,9 @@
-/* Copyright (c) 2019 The Brave Authors. All rights reserved.
+/* Copyright (c) 2020 The Brave Authors. All rights reserved.
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "bat/ads/internal/frequency_capping/exclusion_rules/per_day_frequency_cap.h"
+#include "bat/ads/internal/frequency_capping/exclusion_rules/conversion_frequency_cap.h"
 
 #include "bat/ads/creative_ad_info.h"
 #include "bat/ads/internal/client.h"
@@ -11,29 +11,28 @@
 
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
-#include "base/time/time.h"
 
 namespace ads {
 
-PerDayFrequencyCap::PerDayFrequencyCap(
+ConversionFrequencyCap::ConversionFrequencyCap(
     const Client* const client)
     : client_(client) {
   DCHECK(client_);
 }
 
-PerDayFrequencyCap::~PerDayFrequencyCap() = default;
+ConversionFrequencyCap::~ConversionFrequencyCap() = default;
 
-bool PerDayFrequencyCap::ShouldExclude(
+bool ConversionFrequencyCap::ShouldExclude(
     const CreativeAdInfo& ad) {
   const std::map<std::string, std::deque<uint64_t>> history =
-      client_->GetCreativeSetHistory();
+      client_->GetAdConversionHistory();
 
   const std::deque<uint64_t> filtered_history =
       FilterHistory(history, ad.creative_set_id);
 
   if (!DoesRespectCap(filtered_history, ad)) {
     last_message_ = base::StringPrintf("creativeSetId %s has exceeded the "
-        "frequency capping for perDay", ad.creative_set_id.c_str());
+        "frequency capping for conversions", ad.creative_set_id.c_str());
 
     return true;
   }
@@ -41,21 +40,21 @@ bool PerDayFrequencyCap::ShouldExclude(
   return false;
 }
 
-std::string PerDayFrequencyCap::get_last_message() const {
+std::string ConversionFrequencyCap::get_last_message() const {
   return last_message_;
 }
 
-bool PerDayFrequencyCap::DoesRespectCap(
-    const std::deque<uint64_t>& history,
-    const CreativeAdInfo& ad) const {
-  const uint64_t day_window =
-      base::Time::kSecondsPerHour * base::Time::kHoursPerDay;
+bool ConversionFrequencyCap::DoesRespectCap(
+      const std::deque<uint64_t>& history,
+      const CreativeAdInfo& ad) const {
+  if (history.size() >= 1) {
+    return false;
+  }
 
-  return DoesHistoryRespectCapForRollingTimeConstraint(
-      history, day_window, ad.per_day);
+  return true;
 }
 
-std::deque<uint64_t> PerDayFrequencyCap::FilterHistory(
+std::deque<uint64_t> ConversionFrequencyCap::FilterHistory(
     const std::map<std::string, std::deque<uint64_t>>& history,
     const std::string& creative_set_id) {
   std::deque<uint64_t> filtered_history;

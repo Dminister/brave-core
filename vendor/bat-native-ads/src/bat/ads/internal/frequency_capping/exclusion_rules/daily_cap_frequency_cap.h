@@ -3,38 +3,51 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef BAT_ADS_INTERNAL_DAILY_CAMPAIGN_FREQUENCY_CAP_H_
-#define BAT_ADS_INTERNAL_DAILY_CAMPAIGN_FREQUENCY_CAP_H_
-
-#include <string>
+#ifndef BAT_ADS_INTERNAL_FREQUENCY_CAPPING_EXCLUSION_RULES_DAILY_CAP_FREQUENCY_CAP_H_
+#define BAT_ADS_INTERNAL_FREQUENCY_CAPPING_EXCLUSION_RULES_DAILY_CAP_FREQUENCY_CAP_H_
 
 #include "bat/ads/internal/frequency_capping/exclusion_rule.h"
 
+#include <stdint.h>
+
+#include <deque>
+#include <map>
+#include <string>
+
 namespace ads {
+
+class Client;
 struct CreativeAdInfo;
-class FrequencyCapping;
 
 class DailyCapFrequencyCap : public ExclusionRule {
  public:
   DailyCapFrequencyCap(
-      const FrequencyCapping* const frequency_capping);
+      const Client* const client);
 
   ~DailyCapFrequencyCap() override;
+
+  DailyCapFrequencyCap(const DailyCapFrequencyCap&) = delete;
+  DailyCapFrequencyCap& operator=(const DailyCapFrequencyCap&) = delete;
 
   bool ShouldExclude(
       const CreativeAdInfo& ad) override;
 
-  std::string GetLastMessage() const override;
+  std::string get_last_message() const override;
 
  private:
-  const FrequencyCapping* const frequency_capping_;  // NOT OWNED
+  const Client* const client_;  // NOT OWNED
 
   std::string last_message_;
 
-  bool DoesAdRespectDailyCampaignCap(
+  bool DoesRespectCap(
+      const std::deque<uint64_t>& history,
       const CreativeAdInfo& ad) const;
+
+  std::deque<uint64_t> FilterHistory(
+      const std::map<std::string, std::deque<uint64_t>>& history,
+      const std::string& campaign_id);
 };
 
 }  // namespace ads
 
-#endif  // BAT_ADS_INTERNAL_DAILY_CAMPAIGN_FREQUENCY_CAP_H_
+#endif  // BAT_ADS_INTERNAL_FREQUENCY_CAPPING_EXCLUSION_RULES_DAILY_CAP_FREQUENCY_CAP_H_
